@@ -1,8 +1,10 @@
 package at.fhooe.ai.robocode;
 
 import robocode.AdvancedRobot;
+import robocode.ScannedRobotEvent;
 
 public class Shogouki extends AdvancedRobot {
+    private static final double MIN_BULLET_POWER = 1.0;
 
     @Override
     public void run() {
@@ -21,6 +23,46 @@ public class Shogouki extends AdvancedRobot {
     @Override
     public void onScannedRobot(robocode.ScannedRobotEvent e) {
         fire(1);
+
+        /**
+         * ideas:
+         *
+         * don't fire when energy under 30%
+         * don't move into corners, i.e. draw a circle from the center and use it as the border for movement
+         * move away from opponent if spotted and under 600 ranger or something like that
+         *
+         * while no enemy spotted: turn radar in the same direction as the gun for maximum turn rate
+         * once enemy is spotted: try to track enemy with radar and gun, i.e. lock radar to barrel direction and adjust barrel for bearing the enemy is moving to
+         *
+         *
+         *
+         * neutral/searching:
+         * - turn radar in the same direction as the gun for maximum turn rate
+         * - move in a circle around the center of the battlefield
+         *
+         * enemy spotted:
+         *
+         *  randomly stop sometimes
+         *  randomly change movement direction
+         *  prevent wall collisions
+         *
+         */
+
+
+    }
+
+    private double distanceToWallImpact() {
+
+    }
+
+    private double getBulletPower(ScannedRobotEvent e) {
+        double distance = e.getDistance();
+        double bulletPower = Math.min(3, e.getEnergy() / 4);
+        if(distance > 600)
+            bulletPower /= 2;
+
+
+        return Math.max(bulletPower, MIN_BULLET_POWER);
     }
 
     private void turnGunLeftWithRadar() {
