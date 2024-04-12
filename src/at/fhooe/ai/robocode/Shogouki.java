@@ -3,8 +3,12 @@ package at.fhooe.ai.robocode;
 import robocode.AdvancedRobot;
 import robocode.ScannedRobotEvent;
 
+import java.util.HashMap;
+
 public class Shogouki extends AdvancedRobot {
     private static final double MIN_BULLET_POWER = 1.0;
+
+    private final HashMap<String, EnemyInfo> detectedEnemies = new HashMap<>();
 
     @Override
     public void run() {
@@ -23,7 +27,7 @@ public class Shogouki extends AdvancedRobot {
     @Override
     public void onScannedRobot(robocode.ScannedRobotEvent e) {
         fire(1);
-
+        updateDetectedEnemies(e);
         /**
          * ideas:
          *
@@ -48,6 +52,29 @@ public class Shogouki extends AdvancedRobot {
          *
          */
 
+
+    }
+
+    private void updateDetectedEnemies(ScannedRobotEvent e) {
+        var time =  getTime();
+        String name = e.getName();
+        if(detectedEnemies.containsKey(name)) {
+            EnemyInfo enemy = detectedEnemies.get(name);
+            var oldState = enemy.copy();
+            enemy.update(e, time);
+            detectEventOnEnemy(oldState, enemy);
+        } else {
+            detectedEnemies.put(name, new EnemyInfo(e, time));
+        }
+    }
+
+    private void detectEventOnEnemy(EnemyInfo oldState, EnemyInfo enemy) {
+        var energyDiff = oldState.energy - enemy.energy;
+        var velocityDiff = oldState.velocity - enemy.velocity;
+        var wallHit = oldState.velocity > enemy.velocity && velocityDiff> 2;
+        var enemyFiredShot = oldState.energy > enemy.energy
+                && energyDiff >= 0.1 && energyDiff <= 3.0
+                && !wallHit;
 
     }
 
