@@ -1,6 +1,5 @@
 package speedwagon;
 
-import org.w3c.dom.css.Rect;
 import robocode.*;
 import robocode.util.Utils;
 
@@ -8,6 +7,7 @@ import java.awt.*;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.HashMap;
+import java.util.Random;
 
 public class Shogouki extends AdvancedRobot {
     private static final double MIN_BULLET_POWER = 1.0;
@@ -26,6 +26,9 @@ public class Shogouki extends AdvancedRobot {
 
     private final HashMap<String, EnemyInfo> detectedEnemies = new HashMap<>();
 
+    private static final double DECELERATION_COOLDOWN = 10; // 20 ticks cooldown for deceleration
+    private static double remainingCooldown = 10;
+
     @Override
     public void run() {
         initColors();
@@ -39,11 +42,12 @@ public class Shogouki extends AdvancedRobot {
         // get battlefield - bounds (18) - for some reason upper bounds use 18 * 2 buffer
         battlefield = new Rectangle2D.Double(18, 18, battlefieldWidth - 36, battlefieldHeight - 36);
 
-
+        setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
         ahead(Double.MAX_VALUE);
         while (true) {
             if (getRadarTurnRemaining() == 0.0)
                 setTurnRadarRightRadians(Double.POSITIVE_INFINITY);
+
             execute();
         }
     }
@@ -63,7 +67,6 @@ public class Shogouki extends AdvancedRobot {
         double enemyAbsoluteBearing = getHeadingRadians() + e.getBearingRadians();
         double enemyDistance = e.getDistance();
 
-
         // movement
 
         Point2D.Double newDestination;
@@ -80,8 +83,34 @@ public class Shogouki extends AdvancedRobot {
         }
 
         theta = absoluteBearing(getX(), getY(), newDestination) - getHeadingRadians();
-        setAhead(Math.cos(theta) * 100);
+        double currentAhead = Math.cos(theta) * 100;
+        stutterStep(currentAhead);
         setTurnRightRadians(Math.tan(theta));
+    }
+
+    private Random random = new Random();
+    private void stutterStep(double currentAhead) {
+        Stutter stutter = Stutter.ACCELERATE;
+        // 30% chance to deccelerate on movement
+        if(random.nextDouble() < 0.3 && remainingCooldown == 0) {
+            stutter = Stutter.DECELERATE;
+
+            // reset cooldown
+            remainingCooldown = DECELERATION_COOLDOWN;
+        }
+
+        if(remainingCooldown > 0) {
+            remainingCooldown--;
+        }
+
+        switch (stutter) {
+            case ACCELERATE:
+                setAhead(currentAhead);
+                break;
+            case DECELERATE:
+                setBack(currentAhead / 2.0);
+                break;
+        }
     }
 
     private void updateRadar(ScannedRobotEvent e) {
@@ -207,64 +236,6 @@ public class Shogouki extends AdvancedRobot {
         turnRadarRight(360);
     }
 
-    private void resetCane() {
-        blindCane = 130;
-    }
-
-    /**
-     * x/y = current coordinates
-     * startAngle = absolute angle that tank starts off moving - this is the angle
-     * they will be moving at if there is no wall smoothing taking place.
-     * orientation = 1 if orbiting enemy clockwise, -1 if orbiting counter-clockwise
-     * NOTE: this method is designed based on an orbital movement system; these
-     * last 2 arguments could be simplified in any other movement system.
-     */
-    public double wallSmoothing(double x, double y, double startAngle, int orientation) {
-        resetCane();
-        double wallDistanceX = Math.min(x - WALL_MARGIN, battlefieldWidth - x - WALL_MARGIN);
-        double wallDistanceY = Math.min(y - WALL_MARGIN, battlefieldHeight - y - WALL_MARGIN);
-
-        if (wallDistanceX > blindCane && wallDistanceY > blindCane) {
-            return startAngle;
-        }
-
-        double angle = startAngle;
-        double testX = x + (Math.sin(angle) * blindCane);
-        double testY = y + (Math.cos(angle) * blindCane);
-        double testDistanceX = Math.min(testX - WALL_MARGIN, battlefieldWidth - testX - WALL_MARGIN);
-        double testDistanceY = Math.min(testY - WALL_MARGIN, battlefieldHeight - testY - WALL_MARGIN);
-
-        double adjacent = 0;
-        int g = 0; // shouldn't be needed, but infinite loop sanity check to prevent infinite loop
-
-        while ((testDistanceX < 0 || testDistanceY < 0) && g++ < 25) {
-            if (testDistanceY < 0 && testDistanceY < testDistanceX) {
-                // North or South wall
-                angle = (testY < WALL_MARGIN) ? Math.PI : 0;
-                adjacent = wallDistanceY;
-            } else if (testDistanceX < 0 && testDistanceX <= testDistanceY) {
-                // East or West wall
-                angle = (testX < WALL_MARGIN) ? (3 * (Math.PI / 2.0)) : (Math.PI / 2.0);
-                adjacent = wallDistanceX;
-            }
-
-            if (adjacent < 0) {
-                if (-adjacent > blindCane) {
-                    blindCane += -adjacent;
-                }
-                angle += Math.PI - orientation * (Math.abs(Math.acos(-adjacent / blindCane)) - 0.0005);
-            } else {
-                angle += orientation * (Math.abs(Math.acos(adjacent / blindCane)) + 0.0005);
-            }
-            testX = x + (Math.sin(angle) * blindCane);
-            testY = y + (Math.cos(angle) * blindCane);
-            testDistanceX = Math.min(testX - WALL_MARGIN, battlefieldWidth - testX - WALL_MARGIN);
-            testDistanceY = Math.min(testY - WALL_MARGIN, battlefieldHeight - testY - WALL_MARGIN);
-        }
-        resetCane();
-        return normalizeBearing(angle);
-    }
-
     private static Point2D.Double projectMotion(double x, double y, double heading, double distance) {
         return new Point2D.Double(x + distance * Math.sin(heading), y + distance * Math.cos(heading));
     }
@@ -273,22 +244,16 @@ public class Shogouki extends AdvancedRobot {
         return Math.atan2(target.x - x, target.y - y);
     }
 
-    // Normalizes a bearing to between +pi and -pi
-    private double normalizeBearing(double angle) {
-        while (angle > Math.PI) {
-            angle -= 2 * Math.PI;
-        }
-        while (angle < -Math.PI) {
-            angle += 2 * Math.PI;
-        }
-        return angle;
-    }
-
     private void initColors() {
         setBodyColor(new Color(118, 88, 152));
         setGunColor(new Color(82, 208, 83));
         setRadarColor(new Color(252, 119, 1));
         setBulletColor(new Color(0, 0, 0));
-        setScanColor(new Color(211,41,15));
+        setScanColor(new Color(211, 41, 15));
+    }
+
+    private enum Stutter {
+        ACCELERATE,
+        DECELERATE
     }
 }
