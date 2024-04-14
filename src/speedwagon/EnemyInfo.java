@@ -1,4 +1,4 @@
-package at.fhooe.ai.robocode;
+package speedwagon;
 
 import robocode.ScannedRobotEvent;
 
@@ -11,8 +11,9 @@ public class EnemyInfo {
     public double velocity;
     public double heading;
     public double bearing;
+    public double distance;
 
-    public EnemyInfo(String name, double energy, int posX, int posY, long lastSeen, double velocity, double heading, double bearing) {
+    public EnemyInfo(String name, double energy, int posX, int posY, long lastSeen, double velocity, double heading, double bearing, double distance) {
         this.name = name;
         this.energy = energy;
         this.posX = posX;
@@ -31,6 +32,7 @@ public class EnemyInfo {
         this.velocity =  e.getVelocity();
         this.heading = e.getHeading();
         this.bearing = e.getBearing();
+        this.distance = e.getDistance();
     }
 
     public void update(ScannedRobotEvent e, long currentTime) {
@@ -41,9 +43,10 @@ public class EnemyInfo {
         this.velocity =  e.getVelocity();
         this.heading = e.getHeading();
         this.bearing = e.getBearing();
+        this.distance = e.getDistance();
     }
 
     public EnemyInfo copy() {
-        return new EnemyInfo(name, energy, posX, posY, lastSeen, velocity, heading, bearing);
+        return new EnemyInfo(name, energy, posX, posY, lastSeen, velocity, heading, bearing, distance);
     }
 }
