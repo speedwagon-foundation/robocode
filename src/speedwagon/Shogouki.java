@@ -62,6 +62,7 @@ public class Shogouki extends AdvancedRobot {
 
     }
 
+    // ------ TODO highlight ------
     private void performMovement(ScannedRobotEvent e) {
         double theta;
         double enemyAbsoluteBearing = getHeadingRadians() + e.getBearingRadians();
@@ -88,6 +89,7 @@ public class Shogouki extends AdvancedRobot {
         setTurnRightRadians(Math.tan(theta));
     }
 
+    // ----- TODO highlight -------
     private Random random = new Random();
     private void stutterStep(double currentAhead) {
         Stutter stutter = Stutter.ACCELERATE;
@@ -180,6 +182,7 @@ public class Shogouki extends AdvancedRobot {
         return Math.min(max, Math.max(min, value));
     }
 
+    // ----- TODO highlight -----
     @Override
     public void onHitByBullet(HitByBulletEvent e) {
         // musashi trick
